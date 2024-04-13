@@ -4,108 +4,143 @@ from dotenv import load_dotenv
 
 import paho.mqtt.client as paho
 from paho import mqtt
+from automatedAgent import State, bestMove
 import time
 
-
-# setting callbacks for different events to see if it works, print the message etc.
-def on_connect(client, userdata, flags, rc, properties=None):
-    """
-        Prints the result of the connection with a reasoncode to stdout ( used as callback for connect )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param flags: these are response flags sent by the broker
-        :param rc: stands for reasonCode, which is a code for the connection result
-        :param properties: can be used in MQTTv5, but is optional
-    """
-    print("CONNACK received with code %s." % rc)
-
-
-# with this callback you can see if your publish was successful
-def on_publish(client, userdata, mid, properties=None):
-    """
-        Prints mid to stdout to reassure a successful publish ( used as callback for publish )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param mid: variable returned from the corresponding publish() call, to allow outgoing messages to be tracked
-        :param properties: can be used in MQTTv5, but is optional
-    """
-    print("mid: " + str(mid))
-
-
-# print which topic was subscribed to
-def on_subscribe(client, userdata, mid, granted_qos, properties=None):
-    """
-        Prints a reassurance for successfully subscribing
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param mid: variable returned from the corresponding publish() call, to allow outgoing messages to be tracked
-        :param granted_qos: this is the qos that you declare when subscribing, use the same one for publishing
-        :param properties: can be used in MQTTv5, but is optional
-    """
-    print("Subscribed: " + str(mid) + " " + str(granted_qos))
-
+moves = {"w": "UP", "a": "LEFT", "s": "DOWN", "d": "RIGHT"}
 
 # print message, useful for checking if it was successful
 def on_message(client, userdata, msg):
     """
-        Prints a mqtt message to stdout ( used as callback for subscribe )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param msg: the message with topic and payload
+    Prints a mqtt message to stdout ( used as callback for subscribe )
+    :param client: the client itself
+    :param userdata: userdata is set when initiating the client, here it is userdata=None
+    :param msg: the message with topic and payload
     """
 
-    print("message: " + msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+    topic_list = msg.topic.split("/")
+    topic_title = topic_list[-1]
+
+    if topic_title == "game_state":
+        # Parse game state and display to user
+        raw_state = json.loads(msg.payload)
+
+        # Populate State model
+        state = State(
+            teammateNames=raw_state["teammateNames"],
+            teammatePositions=raw_state["teammatePositions"],
+            enemyPositions=raw_state["enemyPositions"],
+            currentPosition=raw_state["currentPosition"],
+            coin1=raw_state["coin1"],
+            coin2=raw_state["coin2"],
+            coin3=raw_state["coin3"],
+            walls=raw_state["walls"],
+        )
+
+        # Get best move
+        best_move = bestMove(state)
+
+        # Publish move to broker
+        move_direction = moves[best_move]
+        lobby = topic_list[1]
+        player = topic_list[2]
+        print(
+            f"{str(client._client_id, encoding='utf-8')} wants to move {move_direction}."
+        )
+        client.publish(f"games/{lobby}/{player}/move", move_direction)
+
+    elif topic_title == "lobby":
+        print(msg.topic, " ", msg.payload)
+        # Check for game over
+        message = str(msg.payload, "utf-8")
+        if "Game Over" in message:
+            # Disconnect to end the program
+            client.loop_stop()
+            client.disconnect()
+
+        print(message)
 
 
-if __name__ == '__main__':
-    load_dotenv(dotenv_path='./credentials.env')
-    
-    broker_address = os.environ.get('BROKER_ADDRESS')
-    broker_port = int(os.environ.get('BROKER_PORT'))
-    username = os.environ.get('USER_NAME')
-    password = os.environ.get('PASSWORD')
-
-    client = paho.Client(callback_api_version=paho.CallbackAPIVersion.VERSION1, client_id="Player1", userdata=None, protocol=paho.MQTTv5)
-    
-    # enable TLS for secure connection
-    client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
-    # set username and password
-    client.username_pw_set(username, password)
-    # connect to HiveMQ Cloud on port 8883 (default for MQTT)
-    client.connect(broker_address, broker_port)
-
-    # setting callbacks, use separate functions like above for better visibility
-    client.on_subscribe = on_subscribe # Can comment out to not print when subscribing to new topics
-    client.on_message = on_message
-    client.on_publish = on_publish # Can comment out to not print when publishing to topics
-
-    lobby_name = "TestLobby"
-    player_1 = "Player1"
-    player_2 = "Player2"
-    player_3 = "Player3"
-
-    client.subscribe(f"games/{lobby_name}/lobby")
-    client.subscribe(f'games/{lobby_name}/+/game_state')
-    client.subscribe(f'games/{lobby_name}/scores')
-
-    client.publish("new_game", json.dumps({'lobby_name':lobby_name,
-                                            'team_name':'ATeam',
-                                            'player_name' : player_1}))
-    
-    client.publish("new_game", json.dumps({'lobby_name':lobby_name,
-                                            'team_name':'BTeam',
-                                            'player_name' : player_2}))
-    
-    client.publish("new_game", json.dumps({'lobby_name':lobby_name,
-                                        'team_name':'BTeam',
-                                        'player_name' : player_3}))
-
-    time.sleep(1) # Wait a second to resolve game start
-    client.publish(f"games/{lobby_name}/start", "START")
-    client.publish(f"games/{lobby_name}/{player_1}/move", "UP")
-    client.publish(f"games/{lobby_name}/{player_2}/move", "DOWN")
-    client.publish(f"games/{lobby_name}/{player_3}/move", "DOWN")
-    client.publish(f"games/{lobby_name}/start", "STOP")
+load_dotenv(dotenv_path="./credentials.env")
+broker_address = os.environ.get("BROKER_ADDRESS")
+broker_port = int(os.environ.get("BROKER_PORT"))
+username = os.environ.get("USER_NAME")
+password = os.environ.get("PASSWORD")
 
 
-    client.loop_forever()
+class PlayerClient:
+    """
+    Player Client
+
+    Represents a single player of the game.
+
+    """
+
+    def __init__(self, lobby_name, team_name, player_name):
+        self.in_game = False
+        self.lobby_name = lobby_name
+        self.team_name = team_name
+        self.player_name = player_name
+
+        self.client = paho.Client(
+            callback_api_version=paho.CallbackAPIVersion.VERSION1,
+            client_id=player_name,
+            userdata=None,
+            protocol=paho.MQTTv5,
+        )
+
+        # enable TLS for secure connection
+        self.client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
+        # set username and password
+        self.client.username_pw_set(username, password)
+        # connect to HiveMQ Cloud on port 8883 (default for MQTT)
+        self.client.connect(broker_address, broker_port)
+
+        # setting callbacks, use separate functions like above for better visibility
+        self.client.on_message = on_message
+        self.client.on_disconnect = self.on_disconnect_handler()
+
+        # subscribe to relevant topics
+        self.client.subscribe(f"games/{lobby_name}/lobby")
+        self.client.subscribe(f"games/{lobby_name}/{player_name}/game_state")
+        self.client.subscribe(f"games/{lobby_name}/scores")
+
+    def on_disconnect_handler(self):
+        """
+        Return a handler for on_disconnect
+        """
+
+        def on_disconnect(client, userdata, flags, rc):
+            print("Client disconnected...")
+            self.in_game = False
+
+        return on_disconnect
+
+    def join_game(self, leader=False):
+        """Join the game lobby.
+           If leader is True, the client will start the game for everyone.
+
+        Args:
+            leader (bool, optional): leader of the game? Defaults to False.
+        """
+
+        # register client to game
+        print(f"{self.player_name} on {self.team_name} joining...")
+        self.client.publish(
+            "new_game",
+            json.dumps(
+                {
+                    "lobby_name": self.lobby_name,
+                    "team_name": self.team_name,
+                    "player_name": self.player_name,
+                }
+            ),
+        )
+
+        if leader:
+            time.sleep(1)  # Wait a second to resolve game start
+            print("Starting game...")
+            self.client.publish(f"games/{self.lobby_name}/start", "START")
+
+        self.in_game = True
+        self.client.loop_start()
