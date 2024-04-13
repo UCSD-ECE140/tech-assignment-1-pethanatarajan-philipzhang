@@ -75,16 +75,16 @@ def bfs(start, end, grid):
 
     # right
     out = []
-    if start[1] + 1 < 10 and grid[start[0]][start[1] + 1] > 0:
+    if start[1] + 1 < 10 and grid[start[0]][start[1] + 1] >= 0:
         out.append((grid[start[0]][start[1] + 1], "d"))
     # bottom
-    if start[0] + 1 < 10 and grid[start[0] + 1][start[1]] > 0:
+    if start[0] + 1 < 10 and grid[start[0] + 1][start[1]] >= 0:
         out.append((grid[start[0] + 1][start[1]], "s"))
     # left
-    if start[1] - 1 >= 0 and grid[start[0]][start[1] - 1] > 0:
+    if start[1] - 1 >= 0 and grid[start[0]][start[1] - 1] >= 0:
         out.append((grid[start[0]][start[1] - 1], "a"))
     # top
-    if start[0] - 1 >= 0 and grid[start[0] - 1][start[1]] > 0:
+    if start[0] - 1 >= 0 and grid[start[0] - 1][start[1]] >= 0:
         out.append((grid[start[0] - 1][start[1]], "w"))
 
     if len(out) == 0:
