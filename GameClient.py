@@ -11,31 +11,6 @@ from InputTypes import NewPlayer
 from game import Game
 from moveset import Moveset
 
-# setting callbacks for different events to see if it works, print the message etc.
-def on_connect(client, userdata, flags, rc, properties=None):
-    """
-        Prints the result of the connection with a reasoncode to stdout ( used as callback for connect )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param flags: these are response flags sent by the broker
-        :param rc: stands for reasonCode, which is a code for the connection result
-        :param properties: can be used in MQTTv5, but is optional
-    """
-    print("CONNACK received with code %s." % rc)
-
-
-# with this callback you can see if your publish was successful
-def on_publish(client, userdata, mid, properties=None):
-    """
-        Prints mid to stdout to reassure a successful publish ( used as callback for publish )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param mid: variable returned from the corresponding publish() call, to allow outgoing messages to be tracked
-        :param properties: can be used in MQTTv5, but is optional
-    """
-    print("mid: " + str(mid))
-
-
 # print which topic was subscribed to
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
     """
@@ -203,7 +178,6 @@ if __name__ == '__main__':
     # setting callbacks, use separate functions like above for better visibility
     client.on_subscribe = on_subscribe # Can comment out to not print when subscribing to new topics
     client.on_message = on_message
-    client.on_publish = on_publish # Can comment out to not print when publishing to topics
     
     # custom dictionary to track players
     client.team_dict = {} # Keeps tracks of players before a game starts {'lobby_name' : {'team_name' : [player_name, ...]}}

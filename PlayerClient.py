@@ -9,6 +9,7 @@ import time
 
 moves = {"w": "UP", "a": "LEFT", "s": "DOWN", "d": "RIGHT"}
 
+
 # print message, useful for checking if it was successful
 def on_message(client, userdata, msg):
     """
@@ -50,7 +51,6 @@ def on_message(client, userdata, msg):
         client.publish(f"games/{lobby}/{player}/move", move_direction)
 
     elif topic_title == "lobby":
-        print(msg.topic, " ", msg.payload)
         # Check for game over
         message = str(msg.payload, "utf-8")
         if "Game Over" in message:
