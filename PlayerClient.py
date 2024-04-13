@@ -58,8 +58,6 @@ def on_message(client, userdata, msg):
             client.loop_stop()
             client.disconnect()
 
-        print(message)
-
 
 load_dotenv(dotenv_path="./credentials.env")
 broker_address = os.environ.get("BROKER_ADDRESS")
@@ -111,7 +109,6 @@ class PlayerClient:
         """
 
         def on_disconnect(client, userdata, flags, rc):
-            print("Client disconnected...")
             self.in_game = False
 
         return on_disconnect

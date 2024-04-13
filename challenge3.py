@@ -21,6 +21,8 @@ for i, client in enumerate(clients):
     client.join_game(leader)
 
 
-while all([client.in_game for client in clients]):
+while True:
     # Wait until all clients are done playing
-    pass
+    if any([not client.in_game for client in clients]):
+        print("Game Over!")
+        exit()
